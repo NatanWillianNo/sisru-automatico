@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         SISRU Automação - Almoço (Reserva Antecipada)
+// @name         SISRU Automação - Almoço (Tempo Fixo)
 // @namespace    http://tampermonkey.net/
-// @version      39.2
-// @description  Automação para Almoço no SISRU, com aceleração às 17h de Seg/Ter para reserva antecipada.
+// @version      39.3
+// @description  Automação para Almoço no SISRU
 // @author       Natan Willian Noronha (com modificações)
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
 // @license      MIT
 // @icon         https://app.unesp.br/favicon.ico
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/seu-usuario/repositorio/main/sisru-almoco.user.js
-// @downloadURL  https://raw.githubusercontent.com/seu-usuario/repositorio/main/sisru-almoco.user.js
-// @supportURL   https://github.com/seu-usuario/repositorio/issues
-// @homepageURL  https://github.com/seu-usuario/repositorio
+// @updateURL    https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-almoco.user.js
+// @downloadURL  https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-almoco.user.js
+// @supportURL   https://github.com/NatanWillianNo/sisru-automatico/issues
+// @homepageURL  https://github.com/NatanWillianNo/sisru-automatico
 // ==/UserScript==
 
 (function () {
     'use strict';
 
     /**
-     * @file Script de automação SISRU (Almoço), v39.2.
-     * Inclui lógica para acelerar a recarga às Segundas e Terças às 17h para reserva antecipada.
+     * @file Script de automação SISRU (Almoço), v39.3.
+     * Tempo de recarga fixado em 2 segundos para todos os períodos.
      */
 
     // =========================================================================
@@ -62,7 +62,7 @@
         },
         TIMERS_MS: {
             RELOAD_NORMAL: 2000,
-            RELOAD_RAPIDO: 1500,
+            RELOAD_RAPIDO: 2000, // <-- ALTERADO de 1500 para 2000 para fixar o tempo
             WATCHDOG: 90000,
             CAPTCHA_TIMEOUT: 120000,
             CAPTCHA_CHECK_INTERVAL: 500,
@@ -153,7 +153,7 @@
             const agora = new Date();
             const [d, h, m] = [agora.getDay(), agora.getHours(), agora.getMinutes()]; // d=Dia (Domingo=0, Segunda=1...)
 
-            // LÓGICA CORRIGIDA: Define Segundas (1) e Terças (2) às 17h como pico para reserva antecipada
+            // LÓGICA: Define Segundas (1) e Terças (2) às 17h como pico para reserva antecipada
             if ((d === 1 || d === 2) && h === 17) {
                 return { tipo: 'PICO', descricao: 'Reserva antecipada (Seg/Ter 17h)' };
             }
@@ -215,8 +215,9 @@
                 painelAlvo.parentElement.click(); return;
             }
 
+            // Com a alteração, tempoRecarga será sempre 2000
             const tempoRecarga = (Logic.getPeriodoAtual().tipo === "PICO") ? CONFIG.TIMERS_MS.RELOAD_RAPIDO : CONFIG.TIMERS_MS.RELOAD_NORMAL;
-            if (document.querySelector(CONFIG.SELEtores.PAINEL_SELECIONAR_REFEICAO)) {
+            if (document.querySelector(CONFIG.SELETORES.PAINEL_SELECIONAR_REFEICAO)) {
                 Utils.mostrarMensagem("AGUARDANDO", `⚠️ Refeição alvo não encontrada. Voltando para a fila...`, "#ffc048");
                 setTimeout(() => { location.href = CONFIG.URL_ATIVACAO; }, tempoRecarga);
             } else {
@@ -234,7 +235,7 @@
     const Main = {
         init: () => {
             if (window.location.href.startsWith(CONFIG.URL_ATIVACAO.split('?')[0])) {
-                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.2 INICIADO!`, "#00bfff");
+                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.3 INICIADO!`, "#00bfff");
                 setTimeout(Logic.analisarEAgir, CONFIG.TIMERS_MS.CARGA_PAGINA_DELAY);
             } else {
                 Utils.mostrarMensagem("INATIVO", "Automação pausada nesta página.", "#747d8c");
