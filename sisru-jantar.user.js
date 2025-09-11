@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         SISRU Automação - Jantar (v39 | Final Revisada)
+// @name         SISRU Automação - Jantar
 // @namespace    http://tampermonkey.net/
 // @version      39.0
-// @description  Automação para aquisição de Jantar no SISRU - versão final com revisão integral, máxima estabilidade, detecção de popup de sucesso e liberação automática da fila.
+// @description  Automação para aquisição de Jantar no SISRU
 // @author       Natan Willian Noronha
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
