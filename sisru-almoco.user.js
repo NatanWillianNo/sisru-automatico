@@ -2,7 +2,7 @@
 // @name         SISRU Automação - Almoço
 // @namespace    http://tampermonkey.net/
 // @version      39.0
-// @description  Automação para aquisição de Almoço no SISRU da fila.
+// @description  Automação para aquisição de Almoço no SISRU
 // @author       Natan Willian Noronha
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
