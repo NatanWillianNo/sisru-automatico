@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         SISRU Automação - Jantar (Modo Acelerado Seg/Ter)
+// @name         SISRU Automação - Jantar
 // @namespace    http://tampermonkey.net/
 // @version      39.1
 // @description  Automação para aquisição de Jantar no SISRU
@@ -8,10 +8,10 @@
 // @license      MIT
 // @icon         https://app.unesp.br/favicon.ico
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/seu-usuario/repositorio/main/sisru-jantar.user.js
-// @downloadURL  https://raw.githubusercontent.com/seu-usuario/repositorio/main/sisru-jantar.user.js
-// @supportURL   https://github.com/seu-usuario/repositorio/issues
-// @homepageURL  https://github.com/seu-usuario/repositorio
+// @updateURL    https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-jantar.user.js
+// @downloadURL  https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-jantar.user.js
+// @supportURL   https://github.com/NatanWillianNo/sisru-automatico/issues
+// @homepageURL  https://github.com/NatanWillianNo/sisru-automatico
 // ==/UserScript==
 (function () {
     'use strict';
