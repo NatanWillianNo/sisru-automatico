@@ -63,8 +63,7 @@ sisru-automatico/
 ## 🔗 Links Úteis
 
 - [Página do SISRU UNESP – Franca](https://app.unesp.br/sisru-franca/)  
-- [Tampermonkey](https://www.tampermonkey.net/)  
-- [Suporte e issues do repositório](https://github.com/seu-usuario/sisru-automatico/issues)
+- [Tampermonkey](https://www.tampermonkey.net/)
 
 ---
 
