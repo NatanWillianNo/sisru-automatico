@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         SISRU Automação - Almoço
+// @name         SISRU Automação - Almoço (Reserva Antecipada)
 // @namespace    http://tampermonkey.net/
-// @version      39.0
-// @description  Automação para aquisição de Almoço no SISRU
-// @author       Natan Willian Noronha
+// @version      39.2
+// @description  Automação para Almoço no SISRU, com aceleração às 17h de Seg/Ter para reserva antecipada.
+// @author       Natan Willian Noronha (com modificações)
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
 // @license      MIT
@@ -19,7 +19,8 @@
     'use strict';
 
     /**
-     * @file Script de automação SISRU (Almoço), v39.0.
+     * @file Script de automação SISRU (Almoço), v39.2.
+     * Inclui lógica para acelerar a recarga às Segundas e Terças às 17h para reserva antecipada.
      */
 
     // =========================================================================
@@ -39,9 +40,9 @@
     const CONFIG = {
         MODO_DEBUG: true,
         URL_ATIVACAO: "https://app.unesp.br/sisru-franca/cliente/selecionarFilaPorPeriodoDeAtendimento.do",
-        TIPO_REFEICAO_ALVO: "Almoço", // Modificado para Almoço
-        NOME_SCRIPT: "Almoço", // Modificado para Almoço
-        ID_PAINEL: "painel-sisru-almoco", // ID único para o painel do Almoço
+        TIPO_REFEICAO_ALVO: "Almoço",
+        NOME_SCRIPT: "Almoço",
+        ID_PAINEL: "painel-sisru-almoco",
 
         SELETORES: {
             CLOUDFLARE_IFRAME: "iframe[src*='challenges.cloudflare.com/turnstile']",
@@ -92,7 +93,6 @@
             if (!painel) {
                 painel = document.createElement("div"); painel.id = CONFIG.ID_PAINEL;
                 Object.assign(painel.style, {
-                    // HUD posicionado no canto superior esquerdo
                     position: 'fixed', top: '10px', right: '10px', zIndex: '99999', padding: '15px', borderRadius: '10px',
                     backgroundColor: '#1a1a1a', color: '#fff', fontSize: '14px', fontFamily: 'monospace',
                     boxShadow: '0 4px 15px rgba(0,0,0,0.5)', maxWidth: '340px', lineHeight: '1.5em'
@@ -149,12 +149,20 @@
     // 🧠 5. LÓGICA DE NEGÓCIO E ESTADOS
     // =========================================================================
     const Logic = {
-        // Lógica de horários de pico adaptada para o Almoço
         getPeriodoAtual: () => {
-            const agora = new Date(); const [h, m] = [agora.getHours(), agora.getMinutes()];
+            const agora = new Date();
+            const [d, h, m] = [agora.getDay(), agora.getHours(), agora.getMinutes()]; // d=Dia (Domingo=0, Segunda=1...)
+
+            // LÓGICA CORRIGIDA: Define Segundas (1) e Terças (2) às 17h como pico para reserva antecipada
+            if ((d === 1 || d === 2) && h === 17) {
+                return { tipo: 'PICO', descricao: 'Reserva antecipada (Seg/Ter 17h)' };
+            }
+
+            // Lógica mantida para compras no mesmo dia
             if ((h === 9 && m >= 43 && m <= 47)) return { tipo: 'PICO', descricao: 'Abertura 9h45' };
             if ((h === 10 && m >= 58) || (h === 11 && m <= 2)) return { tipo: 'PICO', descricao: 'Abertura 11h' };
-            if ((h === 12 && m >= 43 && m <= 59)) return { tipo: 'PICO', descricao: 'Xepa 12h43' }; // Ajustado para ser mais abrangente
+            if ((h === 12 && m >= 43 && m <= 59)) return { tipo: 'PICO', descricao: 'Xepa 12h43' };
+
             return { tipo: 'AGUARDO', descricao: 'Fora do pico' };
         },
         analisarEAgir: () => {
@@ -166,10 +174,6 @@
                 location.href = CONFIG.URL_ATIVACAO;
             }, CONFIG.TIMERS_MS.WATCHDOG);
 
-            // ================================================================
-            // ETAPA 1: VERIFICAR ESTADOS FINAIS (OBJETIVO ATINGIDO OU ERRO)
-            // Prioridade máxima para a condição de sucesso principal.
-            // ================================================================
             const popupTitle = document.querySelector(CONFIG.SELETORES.POPUP_COMPRA_FEITA_MENSAGEM);
             if (popupTitle && Utils.isElementTrulyVisible(popupTitle) && popupTitle.textContent.toLowerCase().includes(CONFIG.FRASES_CHAVE.COMPRA_REALIZADA)) {
                 Utils.mostrarMensagem("OBJETIVO ATINGIDO", "Popup encontrado! Clicando para liberar a fila...", "#2ed573");
@@ -181,7 +185,7 @@
                     Utils.mostrarMensagem("ERRO CRÍTICO", "Popup encontrado, mas o botão 'Liberar Fila' não está presente!", "#ff4757");
                 }
                 clearTimeout(STATE.watchdogTimer);
-                STATE.isScriptActive = false; // Finaliza o script definitivamente
+                STATE.isScriptActive = false;
                 return;
             }
 
@@ -197,9 +201,6 @@
                 return;
             }
 
-            // ================================================================
-            // ETAPA 2: VERIFICAR AÇÕES INTERATIVAS NECESSÁRIAS
-            // ================================================================
             if (document.querySelector(CONFIG.SELETORES.CLOUDFLARE_IFRAME) || CONFIG.FRASES_CHAVE.CLOUDFLARE_DESAFIO_TEXTO.some(t => bodyText.includes(t))) {
                 CaptchaHandler.iniciar(); return;
             }
@@ -214,11 +215,8 @@
                 painelAlvo.parentElement.click(); return;
             }
 
-            // ================================================================
-            // ETAPA 3: ESTADOS DE ESPERA (RECARREGAR OU REDIRECIONAR)
-            // ================================================================
             const tempoRecarga = (Logic.getPeriodoAtual().tipo === "PICO") ? CONFIG.TIMERS_MS.RELOAD_RAPIDO : CONFIG.TIMERS_MS.RELOAD_NORMAL;
-            if (document.querySelector(CONFIG.SELETORES.PAINEL_SELECIONAR_REFEICAO)) { // Se painéis de refeição existem, mas não o alvo
+            if (document.querySelector(CONFIG.SELEtores.PAINEL_SELECIONAR_REFEICAO)) {
                 Utils.mostrarMensagem("AGUARDANDO", `⚠️ Refeição alvo não encontrada. Voltando para a fila...`, "#ffc048");
                 setTimeout(() => { location.href = CONFIG.URL_ATIVACAO; }, tempoRecarga);
             } else {
@@ -236,7 +234,7 @@
     const Main = {
         init: () => {
             if (window.location.href.startsWith(CONFIG.URL_ATIVACAO.split('?')[0])) {
-                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.0 INICIADO!`, "#00bfff");
+                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.2 INICIADO!`, "#00bfff");
                 setTimeout(Logic.analisarEAgir, CONFIG.TIMERS_MS.CARGA_PAGINA_DELAY);
             } else {
                 Utils.mostrarMensagem("INATIVO", "Automação pausada nesta página.", "#747d8c");
