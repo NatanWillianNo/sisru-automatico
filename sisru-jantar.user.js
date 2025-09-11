@@ -1,9 +1,8 @@
 // ==UserScript==
-// @name         SISRU Automação - Jantar
+// @name         SISRU Automação - Jantar (Modo Acelerado Seg/Ter)
 // @namespace    http://tampermonkey.net/
-// @version      39.0
+// @version      39.1
 // @description  Automação para aquisição de Jantar no SISRU
-// @author       Natan Willian Noronha
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
 // @license      MIT
@@ -18,7 +17,8 @@
     'use strict';
 
     /**
-     * @file Script de automação SISRU (Jantar), v39.0.
+     * @file Script de automação SISRU (Jantar), v39.1.
+     * Inclui lógica para acelerar o tempo de recarga às segundas e terças-feiras às 17h.
      * Revisão final e integral do código para máxima robustez e clareza.
      * A detecção do popup de sucesso e a ação de liberar a fila têm prioridade máxima.
      */
@@ -62,7 +62,7 @@
         },
         TIMERS_MS: {
             RELOAD_NORMAL: 2000,
-            RELOAD_RAPIDO: 1500,
+            RELOAD_RAPIDO: 1000, // Este será usado na nova lógica
             WATCHDOG: 90000,
             CAPTCHA_TIMEOUT: 120000,
             CAPTCHA_CHECK_INTERVAL: 500,
@@ -150,9 +150,18 @@
     // =========================================================================
     const Logic = {
         getPeriodoAtual: () => {
-            const agora = new Date(); const [h, m] = [agora.getHours(), agora.getMinutes()];
+            const agora = new Date();
+            const [d, h, m] = [agora.getDay(), agora.getHours(), agora.getMinutes()]; // d = Dia da semana (Domingo=0, Segunda=1, Terça=2...)
+
+            // NOVA LÓGICA: Define Segundas (1) e Terças (2) às 17h como período de pico
+            if ((d === 1 || d === 2) && h === 17) {
+                return { tipo: 'PICO', descricao: 'Pico especial (Seg/Ter 17h)' };
+            }
+
+            // Lógica original mantida para outros picos
             if (h === 17 && m >= 48 && m <= 52) return { tipo: 'PICO', descricao: 'Abertura 17h50' };
             if (h === 19 && m >= 27 && m <= 45) return { tipo: 'PICO', descricao: 'Xepa 19h27' };
+
             return { tipo: 'AGUARDO', descricao: 'Fora do pico' };
         },
         analisarEAgir: () => {
@@ -234,7 +243,7 @@
     const Main = {
         init: () => {
             if (window.location.href.startsWith(CONFIG.URL_ATIVACAO.split('?')[0])) {
-                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.0 INICIADO!`, "#00bfff");
+                Utils.mostrarMensagem("INICIALIZANDO", `Script ${CONFIG.TIPO_REFEICAO_ALVO} v39.1 INICIADO!`, "#00bfff");
                 setTimeout(Logic.analisarEAgir, CONFIG.TIMERS_MS.CARGA_PAGINA_DELAY);
             } else {
                 Utils.mostrarMensagem("INATIVO", "Automação pausada nesta página.", "#747d8c");
