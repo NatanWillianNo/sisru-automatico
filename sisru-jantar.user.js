@@ -1,16 +1,16 @@
 // ==UserScript==
-// @name         SISRU Automação - Almoço
+// @name         SISRU Automação - Jantar
 // @namespace    http://tampermonkey.net/
-// @version      39.5
-// @description  Automação para aquisição de Almoço no SISRU, com tempo de atualização variável e detecção de horários de pico.
+// @version      39.3
+// @description  Automação para aquisição de Jantar no SISRU, com tempo de atualização variável e detecção de horários de pico.
 // @author       Natan Willian Noronha (com modificações)
 // @match        https://app.unesp.br/sisru-franca/*
 // @grant        none
 // @license      MIT
 // @icon         https://app.unesp.br/favicon.ico
 // @run-at       document-idle
-// @updateURL    https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-almoco.user.js
-// @downloadURL  https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-almoco.user.js
+// @updateURL    https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-jantar.user.js
+// @downloadURL  https://github.com/NatanWillianNo/sisru-automatico/raw/main/sisru-jantar.user.js
 // @supportURL   https://github.com/NatanWillianNo/sisru-automatico/issues
 // @homepageURL  https://github.com/NatanWillianNo/sisru-automatico
 // ==/UserScript==
@@ -19,10 +19,11 @@
     'use strict';
 
     /**
-     * @file SISRU Automação - Almoço, v39.5.
-     * @description Este script automatiza o processo de aquisição de refeições para o almoço no sistema SISRU da UNESP.
+     * @file SISRU Automação - Jantar, v39.3.
+     * @description Este script automatiza o processo de aquisição de refeições para o jantar no sistema SISRU da UNESP.
      *              Ele adapta o tempo de recarga da página com base em horários de pico definidos (por exemplo, para reservas antecipadas e "xepa"),
      *              detecta e tenta resolver desafios do Cloudflare (captcha) e finaliza o processo ao confirmar a aquisição.
+     *              Foi adaptado com base na estrutura HTML e lógica do script de Almoço.
      *              Incorpora blindagem, utilities, módulo de captcha, lógica de negócios e um fluxo de inicialização robusto.
      */
 
@@ -47,18 +48,18 @@
     const CONFIG = {
         MODO_DEBUG: true, // Define se mensagens de debug serão exibidas no console
         URL_ATIVACAO: "https://app.unesp.br/sisru-franca/cliente/selecionarFilaPorPeriodoDeAtendimento.do",
-        TIPO_REFEICAO_ALVO: "Almoço",
-        NOME_SCRIPT: "Almoço",
-        ID_PAINEL: "painel-sisru-almoco", // ID do painel flutuante de mensagens do script
+        TIPO_REFEICAO_ALVO: "Jantar",
+        NOME_SCRIPT: "Jantar",
+        ID_PAINEL: "painel-sisru-jantar", // ID do painel flutuante de mensagens do script
 
         SELETORES: {
             // Seletores para elementos específicos no HTML
             CLOUDFLARE_IFRAME: "iframe[src*='challenges.cloudflare.com/turnstile']",
             CLOUDFLARE_SUCCESS_ICON: '#success-i', // Ícone de sucesso dentro do iframe do Cloudflare (raro de acessar cross-origin)
-            BOTAO_SELECIONAR_ALMOCO: "#form\\:j_idt26\\:0\\:j_idt27", // Seletor do botão específico para "Almoço"
+            BOTAO_SELECIONAR_JANTAR: "#form\\:j_idt26\\:1\\:j_idt27", // Seletor do botão específico para "Jantar" (baseado no HTML fornecido)
             PAINEL_SELECIONAR_REFEICAO: "div.panelPeriodo h1", // Seletor geral para títulos de painéis de período
             POPUP_COMPRA_FEITA_MENSAGEM: ".ui-growl-item .ui-growl-title", // Seletor do título do popup de notificação de compra
-            BOTAO_LIBERAR_FILA: "#form\\:j_idt67", // Seletor do botão "Liberar Fila" após a compra
+            BOTAO_LIBERAR_FILA: "#form\\:j_idt67", // Seletor do botão "Liberar Fila" após a compra (ID comum para Almoço/Jantar)
         },
         FRASES_CHAVE: {
             // Textos no corpo da página para identificar estados ou erros
@@ -119,7 +120,7 @@
                 painel.id = CONFIG.ID_PAINEL;
                 // Aplica estilos CSS para posicionamento e aparência do painel
                 Object.assign(painel.style, {
-                    position: 'fixed', top: '10px', right: '10px', zIndex: '99999', padding: '15px', borderRadius: '10px',
+                    position: 'fixed', bottom: '10px', right: '10px', zIndex: '99999', padding: '15px', borderRadius: '10px',
                     backgroundColor: '#1a1a1a', color: '#fff', fontSize: '14px', fontFamily: 'monospace',
                     boxShadow: '0 4px 15px rgba(0,0,0,0.5)', maxWidth: '340px', lineHeight: '1.5em'
                 });
@@ -211,25 +212,28 @@
          */
         getPeriodoAtual: () => {
             const agora = new Date();
-            const [d, h, m] = [agora.getDay(), agora.getHours(), agora.getMinutes()]; // d=Dia (Domingo=0, Segunda=1...)
+            const [d, h, m] = [agora.getDay(), agora.getHours(), agora.getMinutes()]; // d = Dia da semana (Domingo=0, Segunda=1, Terça=2...)
 
-            // HORÁRIO DO PICO DE RESERVA ANTECIPADA COM MARGEM DE 2 MINUTOS
-            // De 16:58 (17h - 2min) até 17:02 (17h + 2min) para Almoço.
+            // HORÁRIO DO PICO DE RESERVA ANTECIPADA PARA JANTAR
+            // De 16:58 (17h - 2min) até 17:02 (17h + 2min) para Jantar.
+            // Esta janela permite a compra do Jantar no dia anterior ou nos primeiros dias da semana,
+            // espelhando a lógica do Almoço, onde a janela das 17h pode abrir para ambos.
             const MIN_OFFSET = 2; // Margem de 2 minutos
-            const PICO_HOUR_RESERVA = 17;
-            const startMinuteReserva = PICO_HOUR_RESERVA * 60 - MIN_OFFSET; // Ex: 16 * 60 + 58 = 1018
-            const endMinuteReserva = PICO_HOUR_RESERVA * 60 + MIN_OFFSET;     // Ex: 17 * 60 + 2 = 1022
+            const PICO_HOUR_RESERVA_ANTECIPADA = 17; // Ex: Segunda/Terça às 17h.
+            const startMinuteReserva = PICO_HOUR_RESERVA_ANTECIPADA * 60 - MIN_OFFSET;
+            const endMinuteReserva = PICO_HOUR_RESERVA_ANTECIPADA * 60 + MIN_OFFSET;
             const currentMinuteTotal = h * 60 + m;
 
-            // Reserva Antecipada (Almoço) para Segundas (1) e Terças (2) às 17h.
+            // Segunda (1) ou Terça (2) E dentro da janela de 16:58-17:02 para reserva antecipada do jantar
             if ((d === 1 || d === 2) && (currentMinuteTotal >= startMinuteReserva && currentMinuteTotal <= endMinuteReserva)) {
-                return { tipo: 'PICO', descricao: `Reserva antecipada (Seg/Ter ${PICO_HOUR_RESERVA}h +/- ${MIN_OFFSET}min)` };
+                return { tipo: 'PICO', descricao: `Reserva Antecipada JANTAR (Seg/Ter ${PICO_HOUR_RESERVA_ANTECIPADA}h +/- ${MIN_OFFSET}min)` };
             }
 
-            // Outros horários de pico específicos do Almoço
-            if ((h === 9 && m >= 43 && m <= 47)) return { tipo: 'PICO', descricao: 'Abertura 9h45' };
-            if ((h === 10 && m >= 58) || (h === 11 && m <= 2)) return { tipo: 'PICO', descricao: 'Abertura 11h' };
-            if ((h === 12 && m >= 43 && m <= 59)) return { tipo: 'PICO', descricao: 'Xepa 12h43' };
+            // Outros horários de pico específicos do Jantar
+            // ABERTURA GERAL DO JANTAR
+            if ((h === 17 && m >= 48 && m <= 52)) return { tipo: 'PICO', descricao: 'Abertura 17h50 (Jantar)' };
+            // HORÁRIO DA XEPA DO JANTAR
+            if ((h === 19 && m >= 27 && m <= 45)) return { tipo: 'PICO', descricao: 'Xepa 19h27 (Jantar)' };
 
             return { tipo: 'AGUARDO', descricao: 'Fora do pico' };
         },
@@ -291,11 +295,11 @@
                 return; // Espera o CAPTCHA ser resolvido
             }
 
-            // Ação principal: Tentar clicar no link específico para "Almoço"
-            const botaoSelecionarAlmoco = document.querySelector(CONFIG.SELETORES.BOTAO_SELECIONAR_ALMOCO);
-            if (botaoSelecionarAlmoco && Utils.isElementTrulyVisible(botaoSelecionarAlmoco)) {
+            // Ação principal: Tentar clicar no link específico para "Jantar"
+            const botaoSelecionarJantar = document.querySelector(CONFIG.SELETORES.BOTAO_SELECIONAR_JANTAR);
+            if (botaoSelecionarJantar && Utils.isElementTrulyVisible(botaoSelecionarJantar)) {
                 Utils.mostrarMensagem("AÇÃO", `🍽️ Clicando no link '${CONFIG.TIPO_REFEICAO_ALVO}' para entrar na fila...`, "#3742fa");
-                botaoSelecionarAlmoco.click();
+                botaoSelecionarJantar.click();
                 return; // Ação executada, aguarda a próxima página/renderização
             }
 
